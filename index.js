@@ -54,7 +54,8 @@ exports.handler = async (event) => {
                     Data: JSON.stringify({
                         action: 'playerLeft',
                         message: `Player ${playerId} has left the game.`,
-                        gameDetails: gameSession
+                        gameDetails: gameSession,
+                        statusCode: 200
                     }),
                 }).promise();
             }
