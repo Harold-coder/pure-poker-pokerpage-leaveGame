@@ -5,6 +5,8 @@ const connectionsTableName = process.env.CONNECTIONS_TABLE;
 const apiGatewayManagementApi = new AWS.ApiGatewayManagementApi({
     endpoint: process.env.WEBSOCKET_ENDPOINT
 });
+console.log("WebSocket Endpoint:", process.env.WEBSOCKET_ENDPOINT);
+
 
 async function getGameState(gameId) {
     const params = {
@@ -49,6 +51,8 @@ async function saveGameState(gameId, gameSession) {
 exports.handler = async (event) => {
     const { gameId, playerId } = JSON.parse(event.body);
     const connectionId = event.requestContext.connectionId;
+    console.log(gameId);
+    console.log(playerId)
 
     try {
         const gameSession = await getGameState(gameId);
