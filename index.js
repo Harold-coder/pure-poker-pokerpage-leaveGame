@@ -1,77 +1,89 @@
 const AWS = require('aws-sdk');
 const dynamoDb = new AWS.DynamoDB.DocumentClient();
-const tableName = process.env.GAME_TABLE;
+const gameTableName = process.env.GAME_TABLE;
 const connectionsTableName = process.env.CONNECTIONS_TABLE;
 const apiGatewayManagementApi = new AWS.ApiGatewayManagementApi({
     endpoint: process.env.WEBSOCKET_ENDPOINT
 });
+
+async function getGameState(gameId) {
+    const params = {
+        TableName: gameTableName,
+        Key: { gameId },
+    };
+    const { Item } = await dynamoDb.get(params).promise();
+    return Item;
+}
+
+async function notifyAllPlayers(gameId, game) {
+    // Retrieve all connection IDs for this game from the connections table
+    const connectionData = await dynamoDb.scan({ TableName: connectionsTableName, FilterExpression: "gameId = :gameId", ExpressionAttributeValues: { ":gameId": gameId } }).promise();
+    const postCalls = connectionData.Items.map(async ({ connectionId }) => {
+        await apiGatewayManagementApi.postToConnection({ 
+            ConnectionId: connectionId,
+             Data: JSON.stringify({
+                game: game,
+                action: "leaveGame",
+                statusCode: 200
+            }) 
+        }).promise();
+    });
+    await Promise.all(postCalls);
+}
+
+async function saveGameState(gameId, gameSession) {
+    const params = {
+        TableName: tableName,
+        Key: { gameId },
+        UpdateExpression: 'SET players = :players, playerCount = :playerCount, currentTurn = :currentTurn', // Include currentTurn if you're updating it
+        ExpressionAttributeValues: {
+            ':players': gameSession.players,
+            ':playerCount': gameSession.playerCount,
+            ':currentTurn': gameSession.currentTurn, // Make sure to update this value if you've changed the current turn
+        },
+        ReturnValues: 'ALL_NEW'
+    };
+    await dynamoDb.update(params).promise();
+}
 
 exports.handler = async (event) => {
     const { gameId, playerId } = JSON.parse(event.body);
     const connectionId = event.requestContext.connectionId;
 
     try {
-        // Retrieve the game session by gameId
-        const gameSessionResponse = await dynamoDb.get({
-            TableName: tableName,
-            Key: { gameId },
-        }).promise();
-
-        let gameSession = gameSessionResponse.Item;
-
+        const gameSession = await getGameState(gameId);
         if (!gameSession) {
-            return { statusCode: 404, body: JSON.stringify({ message: "Game session not found." }) };
+            console.error(`Game with ID ${gameId} not found`);
+            throw new Error('Game not found');
         }
 
-        // Remove the player from the game session
+        if (!gameSession) {
+            console.error(`Game with ID ${gameId} not found`);
+            throw new Error('Game not found');
+        }
+
         gameSession.players = gameSession.players.filter(player => player.id !== playerId);
         gameSession.playerCount = gameSession.players.length;
 
-        // Update the game session
-        await dynamoDb.update({
-            TableName: tableName,
-            Key: { gameId },
-            UpdateExpression: 'SET players = :players, playerCount = :playerCount',
-            ExpressionAttributeValues: {
-                ':players': gameSession.players,
-                ':playerCount': gameSession.playerCount,
-            },
-            ReturnValues: 'ALL_NEW',
-        }).promise();
+        const playerIndex = game.players.findIndex(p => p.id === playerId);
+        if (game.players[playerIndex].position === game.currentTurn) {
+            gameSession.currentTurn = (gameSession.currentTurn + 1)%gameSession.playerCount 
+        }
 
-        // Notify all players about the player leaving
-        const postCalls = gameSession.players.map(async ({ id }) => {
-            if (id !== playerId) {
-                // Retrieve connectionId for each player
-                const connectionData = await dynamoDb.get({
-                    TableName: connectionsTableName,
-                    Key: { playerId: id },
-                }).promise();
-                
-                // Notify player about the update
-                await apiGatewayManagementApi.postToConnection({
-                    ConnectionId: connectionData.Item.connectionId,
-                    Data: JSON.stringify({
-                        action: 'playerLeft',
-                        message: `Player ${playerId} has left the game.`,
-                        gameDetails: gameSession,
-                        statusCode: 200
-                    }),
-                }).promise();
-            }
-        });
-
-        await Promise.all(postCalls);
+        await saveGameState(gameId, game);
+        await notifyAllPlayers(gameId, game);
 
         return {
             statusCode: 200,
             body: JSON.stringify({ message: "Player has left the game." }),
         };
     } catch (error) {
-        console.error('Error:', error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ message: "Failed to leave game" }),
-        };
+        console.error('Error processing playerLeave:', error);
+        await apiGatewayManagementApi.postToConnection({
+            ConnectionId: connectionId,
+            Data: JSON.stringify({ error: error.message })
+        }).promise();
+
+        return { statusCode: 500, body: JSON.stringify({ message: error.message }) };
     }
 };
