@@ -33,7 +33,7 @@ async function notifyAllPlayers(gameId, game) {
 
 async function saveGameState(gameId, gameSession) {
     const params = {
-        TableName: tableName,
+        TableName: gameTableName,
         Key: { gameId },
         UpdateExpression: 'SET players = :players, playerCount = :playerCount, currentTurn = :currentTurn', // Include currentTurn if you're updating it
         ExpressionAttributeValues: {
