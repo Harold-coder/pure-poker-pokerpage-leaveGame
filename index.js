@@ -61,10 +61,6 @@ exports.handler = async (event) => {
             throw new Error('Game not found');
         }
 
-        if (!gameSession) {
-            console.error(`Game with ID ${gameId} not found`);
-            throw new Error('Game not found');
-        }
         const playerIndex = gameSession.players.findIndex(p => p.id === playerId);
         console.log(playerIndex);
         console.log(gameSession.players);
