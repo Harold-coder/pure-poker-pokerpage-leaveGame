@@ -69,13 +69,13 @@ exports.handler = async (event) => {
         gameSession.players = gameSession.players.filter(player => player.id !== playerId);
         gameSession.playerCount = gameSession.players.length;
 
-        const playerIndex = gameSessions.players.findIndex(p => p.id === playerId);
-        if (gameSessions.players[playerIndex].position === gameSessions.currentTurn) {
+        const playerIndex = gameSession.players.findIndex(p => p.id === playerId);
+        if (gameSession.players[playerIndex].position === gameSession.currentTurn) {
             gameSession.currentTurn = (gameSession.currentTurn + 1)%gameSession.playerCount 
         }
 
-        await saveGameState(gameId, gameSessions);
-        await notifyAllPlayers(gameId, gameSessions);
+        await saveGameState(gameId, gameSession);
+        await notifyAllPlayers(gameId, gameSession);
 
         return {
             statusCode: 200,
