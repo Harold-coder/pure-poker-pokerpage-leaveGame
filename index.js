@@ -65,8 +65,10 @@ exports.handler = async (event) => {
             console.error(`Game with ID ${gameId} not found`);
             throw new Error('Game not found');
         }
-
         const playerIndex = gameSession.players.findIndex(p => p.id === playerId);
+        console.log(playerIndex);
+        console.log(gameSession.players);
+        console.log(gameSession.players[playerIndex]);
         if (gameSession.players[playerIndex].position === gameSession.currentTurn) {
             gameSession.currentTurn = (gameSession.currentTurn + 1)%gameSession.playerCount 
         }
