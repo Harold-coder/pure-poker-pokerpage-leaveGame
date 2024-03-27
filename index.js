@@ -66,13 +66,13 @@ exports.handler = async (event) => {
             throw new Error('Game not found');
         }
 
-        gameSession.players = gameSession.players.filter(player => player.id !== playerId);
-        gameSession.playerCount = gameSession.players.length;
-
         const playerIndex = gameSession.players.findIndex(p => p.id === playerId);
         if (gameSession.players[playerIndex].position === gameSession.currentTurn) {
             gameSession.currentTurn = (gameSession.currentTurn + 1)%gameSession.playerCount 
         }
+
+        gameSession.players = gameSession.players.filter(player => player.id !== playerId);
+        gameSession.playerCount = gameSession.players.length;
 
         await saveGameState(gameId, gameSession);
         await notifyAllPlayers(gameId, gameSession);
