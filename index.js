@@ -69,6 +69,15 @@ exports.handler = async (event) => {
         gameSession.players.forEach((player, index) => {
             player.position = index; // This assumes position is the index in the array
         });
+        const leavingPlayerPosition = gameSession.players[playerIndex].position;
+        // Update current turn
+        if (leavingPlayerPosition === gameSession.currentTurn) {
+            // The player who left was the current player, so we need to assign a new current player
+            gameSession.currentTurn = gameSession.currentTurn % gameSession.playerCount;
+        } else if (leavingPlayerPosition < gameSession.currentTurn) {
+            // If a player before the current turn leaves, we need to decrement currentTurn
+            gameSession.currentTurn--;
+        }
 
         await saveGameState(gameId, gameSession);
         await notifyAllPlayers(gameId, gameSession);
