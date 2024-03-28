@@ -51,8 +51,6 @@ async function saveGameState(gameId, gameSession) {
 exports.handler = async (event) => {
     const { gameId, playerId } = JSON.parse(event.body);
     const connectionId = event.requestContext.connectionId;
-    console.log(gameId);
-    console.log(playerId)
 
     try {
         const gameSession = await getGameState(gameId);
@@ -62,15 +60,15 @@ exports.handler = async (event) => {
         }
 
         const playerIndex = gameSession.players.findIndex(p => p.id === playerId);
-        console.log(playerIndex);
-        console.log(gameSession.players);
-        console.log(gameSession.players[playerIndex]);
         if (gameSession.players[playerIndex].position === gameSession.currentTurn) {
             gameSession.currentTurn = (gameSession.currentTurn + 1)%gameSession.playerCount 
         }
 
         gameSession.players = gameSession.players.filter(player => player.id !== playerId);
         gameSession.playerCount = gameSession.players.length;
+        gameSession.players.forEach((player, index) => {
+            player.position = index; // This assumes position is the index in the array
+        });
 
         await saveGameState(gameId, gameSession);
         await notifyAllPlayers(gameId, gameSession);
